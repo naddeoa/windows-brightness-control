@@ -4,6 +4,9 @@ const path = require('path')
 
 let tray = null
 const DEBUG = false
+let lastBrightness = 100 // default value that will be immediately replaced
+
+const WINDDCUTIL_PATH = 'C:\\Users\\antho\\bin\\winddcutil.exe'
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock()
@@ -12,8 +15,6 @@ if (!gotTheLock) {
   return
 }
 
-const WINDDCUTIL_PATH = 'C:\\Users\\antho\\bin\\winddcutil.exe'
-
 function showNotification(title, body) {
   if (DEBUG) {
     new Notification({
@@ -21,6 +22,27 @@ function showNotification(title, body) {
       body: body
     }).show()
   }
+}
+
+function getCurrentBrightness() {
+  return new Promise((resolve, reject) => {
+    exec(`"${WINDDCUTIL_PATH}" getvcp 1 0x10`, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Error getting brightness:', error)
+        reject(error)
+        return
+      }
+      // Parse output like "VCP 0x10 10"
+      const match = stdout.match(/VCP 0x10\s+(\d+)/)
+      if (match && match[1]) {
+        const brightness = parseInt(match[1])
+        resolve(brightness)
+      } else {
+        console.error('Unexpected brightness output format:', stdout)
+        reject(new Error('Failed to parse brightness'))
+      }
+    })
+  })
 }
 
 function setBrightness(value) {
@@ -40,6 +62,10 @@ function setBrightness(value) {
     }
     showNotification('Success', `Brightness set to ${value}%`)
     console.log(`Brightness set to ${value}%`)
+    
+    // Update last brightness and menu
+    lastBrightness = value
+    updateMenu()
   })
 }
 
@@ -49,7 +75,7 @@ function createBrightnessMenu() {
   // Add items from 100 down to 5 in steps of 5
   for (let i = 100; i >= 5; i -= 5) {
     items.push({
-      label: `${i}%`,
+      label: `${i === lastBrightness ? '> ' : ''}${i}%`,
       click: () => setBrightness(i)
     })
   }
@@ -57,7 +83,7 @@ function createBrightnessMenu() {
   // Add 0-4 explicitly
   for (let i = 4; i >= 0; i--) {
     items.push({
-      label: `${i}%`,
+      label: `${i === lastBrightness ? '> ' : ''}${i}%`,
       click: () => setBrightness(i)
     })
   }
@@ -65,18 +91,29 @@ function createBrightnessMenu() {
   return items
 }
 
-app.whenReady().then(() => {
-  tray = new Tray(path.join(__dirname, 'icon.ico'))
-  
-  // Create context menu
+function updateMenu() {
   const menuItems = createBrightnessMenu()
   menuItems.push({ type: 'separator' })
   menuItems.push({ label: 'Exit', click: () => app.quit() })
   
   const contextMenu = Menu.buildFromTemplate(menuItems)
+  tray.setContextMenu(contextMenu)
+}
+
+app.whenReady().then(async () => {
+  try {
+    // Get current brightness before creating menu
+    lastBrightness = await getCurrentBrightness()
+  } catch (error) {
+    console.error('Failed to get initial brightness:', error)
+  }
+  
+  tray = new Tray(path.join(__dirname, 'icon.ico'))
+  
+  // Create initial menu
+  updateMenu()
 
   tray.setToolTip('Monitor Brightness')
-  tray.setContextMenu(contextMenu)
   
   tray.on('click', () => {
     tray.popUpContextMenu()
