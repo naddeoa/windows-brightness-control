@@ -11,7 +11,9 @@ This generates an exe in `./dist`
 
 # Install
 
-Just run it the exe. Either build it or use the release page.
+First, you need to put `winddcutil` on your windows path. I got mine from https://github.com/scottaxcell/winddcutil.
+
+Then just run the exe. Either build it or use the release page.
 
 # Auto start
 
