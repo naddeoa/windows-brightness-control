@@ -24,7 +24,32 @@ function showNotification(title, body) {
   }
 }
 
+// Get list of connected monitors
+function getMonitors() {
+  return new Promise((resolve, reject) => {
+    exec(`"${WINDDCUTIL_PATH}" detect`, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Error detecting monitors:', error)
+        reject(error)
+        return
+      }
+      // Parse monitor numbers from output
+      const monitors = []
+      const lines = stdout.split('\n')
+      for (const line of lines) {
+        // Match lines like "1 Generic PnP Monitor"
+        const match = line.match(/^(\d+)\s+Generic PnP Monitor/)
+        if (match && match[1]) {
+          monitors.push(match[1])
+        }
+      }
+      resolve(monitors)
+    })
+  })
+}
+
 function getCurrentBrightness() {
+  // Just read from monitor 1 for the menu state
   return new Promise((resolve, reject) => {
     exec(`"${WINDDCUTIL_PATH}" getvcp 1 0x10`, (error, stdout, stderr) => {
       if (error) {
@@ -32,7 +57,6 @@ function getCurrentBrightness() {
         reject(error)
         return
       }
-      // Parse output like "VCP 0x10 10"
       const match = stdout.match(/VCP 0x10\s+(\d+)/)
       if (match && match[1]) {
         const brightness = parseInt(match[1])
@@ -45,28 +69,41 @@ function getCurrentBrightness() {
   })
 }
 
-function setBrightness(value) {
-  const command = `"${WINDDCUTIL_PATH}" setvcp 1 0x10 ${value}`
-  showNotification('Executing command', command)
-  
-  exec(command, (error, stdout, stderr) => {
-    if (error) {
-      showNotification('Error', error.message)
-      console.error(`Error: ${error}`)
-      return
-    }
-    if (stderr) {
-      showNotification('Warning', stderr)
-      console.error(`stderr: ${stderr}`)
-      return
-    }
-    showNotification('Success', `Brightness set to ${value}%`)
-    console.log(`Brightness set to ${value}%`)
+async function setBrightness(value) {
+  try {
+    // Get all monitors first
+    const monitors = await getMonitors()
     
-    // Update last brightness and menu
+    // Set brightness for each monitor
+    for (const monitor of monitors) {
+      const command = `"${WINDDCUTIL_PATH}" setvcp ${monitor} 0x10 ${value}`
+      showNotification('Executing command', command)
+      
+      await new Promise((resolve, reject) => {
+        exec(command, (error, stdout, stderr) => {
+          if (error) {
+            showNotification('Error', `Monitor ${monitor}: ${error.message}`)
+            console.error(`Error on monitor ${monitor}:`, error)
+            reject(error)
+            return
+          }
+          if (stderr) {
+            showNotification('Warning', `Monitor ${monitor}: ${stderr}`)
+            console.error(`Warning on monitor ${monitor}:`, stderr)
+          }
+          showNotification('Success', `Monitor ${monitor} brightness set to ${value}%`)
+          console.log(`Monitor ${monitor} brightness set to ${value}%`)
+          resolve()
+        })
+      })
+    }
+    
+    // Update last brightness and menu after setting all monitors
     lastBrightness = value
     updateMenu()
-  })
+  } catch (error) {
+    console.error('Failed to set brightness:', error)
+  }
 }
 
 function createBrightnessMenu() {
