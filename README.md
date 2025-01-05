@@ -1,5 +1,9 @@
 
+Widget to control monitor brightness on Windows.
 
+![image](https://github.com/user-attachments/assets/20cc4e6c-554b-4000-888f-c49706293c8d)
+
+I use things like this on Ubuntu/Gnome and missed it when I use Windows to game.
 
 # Building
 
