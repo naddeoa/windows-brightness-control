@@ -6,7 +6,7 @@ let tray = null
 const DEBUG = false
 let lastBrightness = 100 // default value that will be immediately replaced
 
-const WINDDCUTIL_PATH = 'C:\\Users\\antho\\bin\\winddcutil.exe'
+const WINDDCUTIL = 'winddcutil' // will be found from PATH
 
 // Prevent multiple instances
 const gotTheLock = app.requestSingleInstanceLock()
@@ -24,16 +24,14 @@ function showNotification(title, body) {
   }
 }
 
-// Get list of connected monitors
 function getMonitors() {
   return new Promise((resolve, reject) => {
-    exec(`"${WINDDCUTIL_PATH}" detect`, (error, stdout, stderr) => {
+    exec(`${WINDDCUTIL} detect`, (error, stdout, stderr) => {
       if (error) {
         console.error('Error detecting monitors:', error)
         reject(error)
         return
       }
-      // Parse monitor numbers from output
       const monitors = []
       const lines = stdout.split('\n')
       for (const line of lines) {
@@ -51,7 +49,7 @@ function getMonitors() {
 function getCurrentBrightness() {
   // Just read from monitor 1 for the menu state
   return new Promise((resolve, reject) => {
-    exec(`"${WINDDCUTIL_PATH}" getvcp 1 0x10`, (error, stdout, stderr) => {
+    exec(`${WINDDCUTIL} getvcp 1 0x10`, (error, stdout, stderr) => {
       if (error) {
         console.error('Error getting brightness:', error)
         reject(error)
@@ -76,7 +74,7 @@ async function setBrightness(value) {
     
     // Set brightness for each monitor
     for (const monitor of monitors) {
-      const command = `"${WINDDCUTIL_PATH}" setvcp ${monitor} 0x10 ${value}`
+      const command = `${WINDDCUTIL} setvcp ${monitor} 0x10 ${value}`
       showNotification('Executing command', command)
       
       await new Promise((resolve, reject) => {
@@ -109,16 +107,16 @@ async function setBrightness(value) {
 function createBrightnessMenu() {
   const items = []
   
-  // Add items from 100 down to 5 in steps of 5
-  for (let i = 100; i >= 5; i -= 5) {
+  // Add items from 100 down to 10 in steps of 10
+  for (let i = 100; i >= 10; i -= 10) {
     items.push({
       label: `${i === lastBrightness ? '> ' : ''}${i}%`,
       click: () => setBrightness(i)
     })
   }
   
-  // Add 0-4 explicitly
-  for (let i = 4; i >= 0; i--) {
+  // Add 5-0 explicitly
+  for (let i = 5; i >= 0; i--) {
     items.push({
       label: `${i === lastBrightness ? '> ' : ''}${i}%`,
       click: () => setBrightness(i)
