@@ -1,5 +1,5 @@
 
-Widget to control monitor brightness on Windows.
+Widget to control monitor brightness on Windows. Mostly written by Claude.
 
 ![image](https://github.com/user-attachments/assets/20cc4e6c-554b-4000-888f-c49706293c8d)
 
